@@ -14,14 +14,25 @@ TESTS = $(patsubst %.cpp,%,$(TEST_SRC))
 BENCH_SRC = $(wildcard benchmarks/*_bench.cpp)
 BENCHMARKS = $(patsubst %.cpp,%,$(BENCH_SRC))
 
-all: tests benchmarks
+TARGET = lib/libkvs.a
+
+all: $(TARGET) tests benchmarks
 
 .PHONY: build
 build:
-	mkdir -p build
+	mkdir -p build/io
 	mkdir -p bin
+	mkdir -p lib
+
+build/%.o: src/%.cpp
+	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(LDLIBS) -c $< -o $@
+
+$(TARGET): build $(OBJECTS)
+	ar rcs $@ $(OBJECTS)
+	ranlib $@
 
 .PHONY: tests
+tests: LDLIBS += $(TARGET)
 tests: $(TESTS)
 	sh ./tests/unit-tests.sh
 
@@ -34,3 +45,4 @@ clean:
 	rm -rf build $(OBJECTS) $(TESTS) $(BENCHMARKS)
 	rm -f tests/tests.log
 	rm -f benchmarks/*.log
+	rm -rf tests/data

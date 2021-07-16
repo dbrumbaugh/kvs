@@ -10,6 +10,7 @@
 #define kvs
 
 typedef char byte;
+typedef int fd_t;
 
 
 

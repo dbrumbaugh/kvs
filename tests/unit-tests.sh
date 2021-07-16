@@ -1,4 +1,10 @@
 #!/bin/bash
+
+mkdir ./tests/data
+touch ./tests/data/testfile.store
+touch ./tests/data/failfile.store
+chmod 000 ./tests/data/failfile.store
+
 echo "Running unit tests:"
 
 for i in tests/*_tests
