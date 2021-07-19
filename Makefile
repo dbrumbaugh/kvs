@@ -1,7 +1,7 @@
 # Makefile adapted from Zed Shaw's book,
 # Learn C the Hard Way, Ex. 28 (pg 153-154)
 
-CXXFLAGS = -Wall -Wextra -Iinclude -faligned-new $(OPTFLAGS)
+CXXFLAGS = -Wall -Wextra -Iinclude -faligned-new -ggdb $(OPTFLAGS)
 LDFLAGS = $(OPTLIBS)
 LDLIBS = -lcheck -lm -pthread -lrt -lsubunit
 
