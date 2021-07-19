@@ -49,7 +49,7 @@ START_TEST(write_test)
     int count = 0;
     const int buffsize = 45;
 
-    test = new MemIOHandler(1024);
+    test = new MemIOHandler(10);
 
     char *test_data = new char[buffsize];
     strncpy(test_data, "hello world 1 2 3 4 5", buffsize);
@@ -76,7 +76,7 @@ START_TEST(write_hole)
     int count = 0;
     const int buffsize = 45;
 
-    test = new MemIOHandler(1024);
+    test = new MemIOHandler(10);
 
     ck_assert_int_eq(test->get_flen(), 0);
     char *test_data = new char[buffsize];
@@ -91,6 +91,43 @@ START_TEST(write_hole)
     ck_assert_int_eq(error, false);
     ck_assert_int_eq(count, buffsize);
     ck_assert_int_eq(test->get_flen(), buffsize + 100);
+}
+END_TEST
+
+
+START_TEST(read_hole)
+{
+    IOHandler *test;
+    bool error = false;
+    int count = 0;
+    const int buffsize = 45;
+
+    test = new MemIOHandler(10);
+
+    ck_assert_int_eq(test->get_flen(), 0);
+    char *test_data = new char[buffsize];
+    strncpy(test_data, "more hello world stuff. Yay!\n", buffsize);
+
+    try {
+        count = test->write(test_data, buffsize, 100);
+    } catch (IOException& e) {
+        error = true;
+    }
+
+    ck_assert_int_eq(error, false);
+    ck_assert_int_eq(count, buffsize);
+    ck_assert_int_eq(test->get_flen(), buffsize + 100);
+
+
+    char *read_data = new char[buffsize*2];
+    try {
+        count = test->read(read_data, buffsize*2, 80);
+    } catch (IOException& e) {
+        error = true;
+    }
+
+    ck_assert_int_eq(error, false);
+    ck_assert_int_eq(count, 2*buffsize);
 }
 END_TEST
 
@@ -137,6 +174,28 @@ START_TEST(write_read)
 END_TEST
 
 
+START_TEST(bulk_write)
+{
+    size_t n = 1000000;
+    int *nums = new int[n];
+    for (size_t i=0; i<n; i++)
+        nums[i] = rand();
+
+    IOHandler *test = new MemIOHandler(512);
+
+    test->write((byte *) nums, n*sizeof(int), 0);
+    //ck_assert_int_eq(test->get_flen(), n);
+
+    for (size_t i=0; i<n; i++) {
+        int *buff = new int;
+        int rc = test->read((byte *) buff, sizeof(int), i*sizeof(int));
+        ck_assert_int_eq(rc, sizeof(int));
+        ck_assert_int_eq(*buff, nums[i]);
+    }
+}
+END_TEST
+
+
 Suite *test_suite()
 {
     Suite *suite = suite_create("RawIO Tests");
@@ -148,7 +207,10 @@ Suite *test_suite()
 
     tcase_add_test(basic, write_test);
     tcase_add_test(basic, write_hole);
+    tcase_add_test(basic, read_hole);
     tcase_add_test(basic, write_read);
+    tcase_add_test(basic, bulk_write);
+    tcase_set_timeout(basic, 10000);
 
     tcase_add_test(basic, destroy);
 
