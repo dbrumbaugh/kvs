@@ -7,17 +7,17 @@
 #include "kvs.hpp"
 #include <cstdlib>
 
-#define BLOCKSIZE 100
-off_t block_offset(size_t block);
+enum class op_t {
+    READ,
+    WRITE
+};
 
 class IOHandler
 {
     public:
-//        virtual byte* read(size_t block)=0;
- //       virtual void write(size_t block, byte *data)=0;
-  //      virtual off_t offset(size_t block)=0;
-   //     virtual off_t flen()=0;
-        virtual size_t get_bs()=0;
+        virtual int read(byte* buffer, ssize_t size, off_t offset)=0;
+        virtual int write(byte* buffer, ssize_t size, off_t offset)=0;
+        virtual off_t get_flen()=0;
         virtual fd_t get_fd()=0;
         virtual ~IOHandler(){};
 };
