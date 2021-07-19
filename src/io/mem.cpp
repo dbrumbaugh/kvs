@@ -44,9 +44,9 @@ void MemIOHandler::new_buffer(size_t buffno)
 }
 
 
-size_t inline MemIOHandler::buffer_num(off_t offset, size_t size)
+size_t MemIOHandler::buffer_num(off_t offset)
 {
-    return (size_t) (offset / buffer_size);
+    return (size_t) (offset / this->buffer_size);
 }
 
 
@@ -69,9 +69,9 @@ byte *MemIOHandler::get_buffer(size_t buffno, bool create)
 }
 
 
-int MemIOHandler::read(byte *buffer, ssize_t size, off_t offset)
+int MemIOHandler::read(byte *buffer, size_t size, off_t offset)
 {
-    int cur_buffno = buffer_num(offset, size);
+    int cur_buffno = buffer_num(offset);
     off_t buff_offset = offset - (cur_buffno * this->buffer_size);
     byte *cur_buff = this->get_buffer(cur_buffno, false);
     off_t read_offset = 0;
@@ -90,9 +90,9 @@ int MemIOHandler::read(byte *buffer, ssize_t size, off_t offset)
 }
 
 
-int MemIOHandler::write(byte *buffer, ssize_t size, off_t offset)
+int MemIOHandler::write(byte *buffer, size_t size, off_t offset)
 {
-    int cur_buffno = buffer_num(offset, size);
+    int cur_buffno = buffer_num(offset);
     off_t buff_offset = offset - (cur_buffno * this->buffer_size);
     byte *cur_buff = this->get_buffer(cur_buffno, true);
     off_t write_offset = 0;
@@ -107,7 +107,7 @@ int MemIOHandler::write(byte *buffer, ssize_t size, off_t offset)
         if (remaining) cur_buff = this->get_buffer(++cur_buffno, true);
     } while (remaining);
 
-    if (offset + size > this->len) {
+    if (offset + size > (size_t) this->len) {
         this->len = offset + size;
     }
 

@@ -38,7 +38,7 @@ fd_t RawIOHandler::get_fd()
     return this->fd;
 }
 
-int RawIOHandler::perform_io(byte* buffer, ssize_t size, off_t offset, op_t op)
+int RawIOHandler::perform_io(byte* buffer, size_t size, off_t offset, op_t op)
 {
     ssize_t total_progress = 0;
     ssize_t progress;
@@ -61,7 +61,7 @@ int RawIOHandler::perform_io(byte* buffer, ssize_t size, off_t offset, op_t op)
 }
 
 
-int RawIOHandler::read(byte* buffer, ssize_t size, off_t offset)
+int RawIOHandler::read(byte* buffer, size_t size, off_t offset)
 {
     if (offset + size > this->get_flen()) throw IOException();
     return this->perform_io(buffer, size, offset, op_t::READ);
@@ -69,7 +69,7 @@ int RawIOHandler::read(byte* buffer, ssize_t size, off_t offset)
 
 
 
-int RawIOHandler::write(byte* buffer, ssize_t size, off_t offset)
+int RawIOHandler::write(byte* buffer, size_t size, off_t offset)
 {
     return this->perform_io(buffer, size, offset, op_t::WRITE);
 }
