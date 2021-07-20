@@ -40,7 +40,7 @@ fd_t RawIOHandler::get_fd()
 
 int RawIOHandler::perform_io(byte* buffer, size_t size, off_t offset, op_t op)
 {
-    ssize_t total_progress = 0;
+    size_t total_progress = 0;
     ssize_t progress;
 
     do {
@@ -63,7 +63,7 @@ int RawIOHandler::perform_io(byte* buffer, size_t size, off_t offset, op_t op)
 
 int RawIOHandler::read(byte* buffer, size_t size, off_t offset)
 {
-    if (offset + size > this->get_flen()) throw IOException();
+    if (offset + (off_t) size > this->get_flen()) throw IOException();
     return this->perform_io(buffer, size, offset, op_t::READ);
 }
 
