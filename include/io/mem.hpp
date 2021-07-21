@@ -30,5 +30,7 @@ class MemIOHandler: public IOHandler
         int write(byte* buffer, size_t size, off_t offset) override;
         off_t get_flen() override;
         int get_fd() override;
+
+        void dump(size_t line_size);
 };
 #endif

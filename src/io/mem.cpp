@@ -125,3 +125,16 @@ off_t MemIOHandler::get_flen()
 {
     return this->len;
 }
+
+
+void MemIOHandler::dump(size_t line_size)
+{
+    for (auto& buff: *this->buffer_pool){
+        fprintf(stderr, "%d------\n", buff.first);
+        for (size_t i=0; i<this->buffer_size; i++) {
+            fprintf(stderr, "%02hhx ", buff.second[i]);
+            if ((i+1) % line_size == 0) fprintf(stderr, "\n");
+        }
+    }
+
+}
