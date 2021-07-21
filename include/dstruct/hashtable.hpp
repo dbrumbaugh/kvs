@@ -4,6 +4,7 @@
 
 #include "io/mem.hpp"
 #include "io/raw.hpp"
+#include "io/buffered.hpp"
 #include "kvs.hpp"
 #include <memory>
 #include <cstdlib>
@@ -147,9 +148,9 @@ class HashTable
         }
 
 
-        HashTable(size_t bucket_cnt, char *fname)
+        HashTable(const char *fname, size_t bucket_cnt)
         {
-            this->storage = new RawIOHandler(fname);
+            this->storage = new BufferedIOHandler(new RawIOHandler(fname), 10);
             byte x = 0;
             storage->write(&x, 1, bucket_cnt * bucket_bytes - 1);
             this->bucket_cnt = bucket_cnt;
