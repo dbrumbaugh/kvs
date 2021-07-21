@@ -5,6 +5,7 @@ mkdir ./tests/data
 touch ./tests/data/testfile.store
 touch ./tests/data/failfile.store
 touch ./tests/data/readtest.store
+touch ./tests/data/table.store
 
 echo "This is a load of test data" >> ./tests/data/readtest.store
 echo "1 2 3 4 5 6 7 8 9 0" >> ./tests/data/readtest.store
