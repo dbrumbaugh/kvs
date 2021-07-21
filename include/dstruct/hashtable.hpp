@@ -140,8 +140,16 @@ class HashTable
     public:
         HashTable(size_t bucket_cnt)
         {
-            //this->storage = std::make_unique<MemIOHandler>(1024);
             this->storage = new MemIOHandler(128);
+            byte x = 0;
+            storage->write(&x, 1, bucket_cnt * bucket_bytes - 1);
+            this->bucket_cnt = bucket_cnt;
+        }
+
+
+        HashTable(size_t bucket_cnt, char *fname)
+        {
+            this->storage = new RawIOHandler(fname);
             byte x = 0;
             storage->write(&x, 1, bucket_cnt * bucket_bytes - 1);
             this->bucket_cnt = bucket_cnt;
