@@ -46,11 +46,11 @@ class HashTable
          *       Perhaps a nonissue, but it could come up.
          */
         static constexpr size_t const element_sz = sizeof(TKey) + sizeof(TValue);
-        static constexpr size_t const bucket_sz = 1 + (element_sz) / 
+        static constexpr size_t const bucket_sz = 1 + (element_sz) /
                                                     (REDUCED_CACHELINE);
         static constexpr size_t const bucket_bytes = bucket_sz * CACHELINE;
         static constexpr size_t const bucket_data_bytes = bucket_bytes - sizeof(off_t);
-        static constexpr size_t const elements_per_bucket = 
+        static constexpr size_t const elements_per_bucket =
                                              REDUCED_CACHELINE / element_sz;
 
 
@@ -70,7 +70,7 @@ class HashTable
          * https://stackoverflow.com/questions/12753997/check-if-type-is-hashable
          *
          * I suppose I could always fall back on function pointers, but that
-         * feels inelegant. 
+         * feels inelegant.
          */
 
 
@@ -89,7 +89,7 @@ class HashTable
         off_t inline key_offset(off_t element_offset)
         {
             off_t offset = element_offset;
-            if (offset + sizeof(TKey) + sizeof(TValue) > bucket_data_bytes) 
+            if (offset + sizeof(TKey) + sizeof(TValue) > bucket_data_bytes)
                 throw std::out_of_range("Bad table key offset--reading value passes end of buffer.");
 
             return offset;
@@ -107,10 +107,10 @@ class HashTable
 
 
         // quick zeroed memory check, thanks to Accipitridae on Stack Overflow
-        // I'm not sure if the length of the buffer has a huge effect on perf 
+        // I'm not sure if the length of the buffer has a huge effect on perf
         // here. It might be worth while to first check the key, and then only
         // check the value if the key is zeroed. I suppose we could check the
-        // key and the key alone, but that would preclude storing 0 as a key. 
+        // key and the key alone, but that would preclude storing 0 as a key.
         // This approach only precludes storing {0, 0} as a KVP.
         //
         // All this could be avoided by increasing the element size to
@@ -125,7 +125,7 @@ class HashTable
             // matches with the following element for the whole length, than
             // the buffer must be zeroed out. I may have failed at this sort of
             // alignment matching in kindergarten, but I have a computer now!
-            return (bucket[element_offset] == 0) && (!memcmp(bucket + element_offset, 
+            return (bucket[element_offset] == 0) && (!memcmp(bucket + element_offset,
                     bucket + element_offset + 1, element_sz - 1));
         }
 
@@ -175,11 +175,11 @@ class HashTable
                         memcpy(&retval, bucket + value_offset(i), sizeof(TValue));
                         return retval;
                     } else if (result > 0 && insert_offset == -1 && is_empty(i, bucket)) {
-                        // As we're iterating over the chain, we may as well 
+                        // As we're iterating over the chain, we may as well
                         // locate the first empty spot where we *could* stick
                         // the element, if we end up needing to insert it. By
                         // sticking it in the first available spot, rather than
-                        // at the end, we can easily fill in holes left by 
+                        // at the end, we can easily fill in holes left by
                         // deletions.
                         insert_offset = i;
                         insert_bucket = offset;
@@ -208,24 +208,24 @@ class HashTable
                 off_t write_offset = this->storage->get_flen();
                 this->storage->write(element, element_sz, write_offset);
                 byte x = 0;
-                
+
                 // Ensuring that the length of the memory region is an even
                 // multiple of bucket_bytes. Talk about fighting with the
                 // limitations of an API...
                 this->storage->write(&x, 1, write_offset + this->bucket_bytes);
 
                 // update the offset in the previous chain link
-                this->storage->write((byte *) &write_offset, sizeof(off_t), 
+                this->storage->write((byte *) &write_offset, sizeof(off_t),
                         offset + bucket_data_bytes);
             }
 
             return val;
         }
 
-        
+
         TValue get(TKey key)
         {
-            off_t offset = get_bucket(key); 
+            off_t offset = get_bucket(key);
 
             bool more_chain = true;
             byte bucket[bucket_bytes] = {0};
@@ -238,7 +238,7 @@ class HashTable
                         TValue retval;
                         memcpy(&retval, bucket + value_offset(i), sizeof(TValue));
                         return retval;
-                    } 
+                    }
                 }
 
                 off_t *next_offset = (off_t *) (bucket + bucket_data_bytes);
@@ -256,7 +256,7 @@ class HashTable
 
         void remove(TKey key)
         {
-            off_t offset = get_bucket(key); 
+            off_t offset = get_bucket(key);
 
             bool more_chain = true;
             byte bucket[bucket_bytes] = {0};
@@ -270,7 +270,7 @@ class HashTable
                         memset(zeroes, 0, element_sz);
                         this->storage->write(zeroes, element_sz, offset + key_offset(i));
                         return;
-                    } 
+                    }
                 }
 
                 off_t *next_offset = (off_t *) (bucket + bucket_data_bytes);
@@ -287,7 +287,7 @@ class HashTable
 
 
 
-        size_t hash(TKey key) 
+        size_t hash(TKey key)
         {
             std::hash<TKey> hash_key;
             size_t val = hash_key(key);
@@ -306,7 +306,7 @@ class HashTable
             return this->storage;
         }
 
-        ~HashTable() 
+        ~HashTable()
         {
             delete this->storage;
         }

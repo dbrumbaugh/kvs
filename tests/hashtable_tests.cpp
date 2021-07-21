@@ -90,6 +90,11 @@ START_TEST(duplicate_insert)
         test->insert(key, val);
     }
 
+    // just in case...
+    try {
+        test->remove(101);
+    } catch (KeyNotFoundException& e) {}
+
     int32_t res = test->insert(101, 50);
     ck_assert_int_eq(res, 50);
 
