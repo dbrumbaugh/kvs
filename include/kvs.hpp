@@ -14,6 +14,7 @@ typedef int fd_t;
 
 #define CACHELINE 64
 #define REDUCED_CACHELINE CACHELINE - sizeof(off_t)
+#define PAGESIZE 100
 
 
 
