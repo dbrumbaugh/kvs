@@ -12,6 +12,9 @@
 typedef char byte;
 typedef int fd_t;
 
+#define CACHELINE 64
+#define REDUCED_CACHELINE CACHELINE - sizeof(off_t)
+
 
 
 #endif
