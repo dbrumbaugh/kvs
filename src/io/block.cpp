@@ -103,10 +103,7 @@ int block::truncate_to_block_size(int fd, off_t block_no)
 
     int res = ftruncate(fd, truncate_offset);
 
-    if (res == -1) {
-        perror("Error: ");
-        throw IOException();
-    }
+    if (res == -1) throw IOException();
 
     return 0;
 }
