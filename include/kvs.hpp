@@ -10,11 +10,12 @@
 #define kvs
 
 typedef char byte;
+static_assert(sizeof(byte) == 1, "Byte-type must have a size of 1");
 typedef int fd_t;
 
 #define CACHELINE 64
 #define REDUCED_CACHELINE CACHELINE - sizeof(off_t)
-#define PAGESIZE 100
+#define PAGESIZE 4096
 
 
 
