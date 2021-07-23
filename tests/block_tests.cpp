@@ -234,11 +234,28 @@ START_TEST(write_test)
         write_data[i] = rand();
     }
 
-    off_t presize = file_len_blocks(write_fd);
-    write(write_fd, 2, (byte *) write_data);
+    off_t presize;
+    try {
+        presize = file_len_blocks(write_fd);
+    } catch (exception& e) {
+        delete[] write_data;
+        abort();
+    }
 
-    ck_assert_int_eq(presize, file_len_blocks(write_fd));
-    ck_assert_int_eq(verify_valid_file_len(write_fd), true);
+    try {
+        write(write_fd, 2, (byte *) write_data);
+    } catch (exception& e) {
+        delete[] write_data;
+        abort();
+    }
+
+    try {
+        ck_assert_int_eq(presize, file_len_blocks(write_fd));
+        ck_assert_int_eq(verify_valid_file_len(write_fd), true);
+    } catch (exception& e) {
+        delete[] write_data;
+        abort();
+    }
 
     int *file_data = new int[n];
     size_t total_progress = 0;
@@ -247,11 +264,16 @@ START_TEST(write_test)
     while (total_progress < n*sizeof(int)) {
         progress = pread(write_fd, file_data, n * sizeof(int),
                 2 * BLOCKSIZE);
-        if (progress == -1) abort();
+        if (progress == -1) {
+            delete[] write_data;
+            delete[] file_data;
+            abort();
+        }
         total_progress += (size_t) progress;
     }
 
     ck_assert_mem_eq(file_data, write_data, sizeof(int) * n);
+
     delete[] write_data;
     delete[] file_data;
 }
@@ -269,11 +291,28 @@ START_TEST(append_test)
         append_data[i] = rand();
     }
 
-    off_t presize = file_len_blocks(write_fd);
-    append(write_fd, (byte *) append_data);
+    off_t presize;
+    try {
+        presize = file_len_blocks(write_fd);
+    } catch (exception& e) {
+        delete[] append_data;
+        abort();
+    }
 
-    ck_assert_int_eq(presize+1, file_len_blocks(write_fd));
-    ck_assert_int_eq(verify_valid_file_len(write_fd), true);
+    try {
+        append(write_fd, (byte *) append_data);
+    } catch (exception& e) {
+        delete[] append_data;
+        abort();
+    }
+
+    try {
+        ck_assert_int_eq(presize+1, file_len_blocks(write_fd));
+        ck_assert_int_eq(verify_valid_file_len(write_fd), true);
+    } catch (exception& e) {
+        delete[] append_data;
+        abort();
+    }
 
     int *file_data = new int[n]();
     size_t total_progress = 0;
@@ -282,7 +321,12 @@ START_TEST(append_test)
     while (total_progress < n*sizeof(int)) {
         progress = pread(write_fd, file_data, n * sizeof(int),
                 presize * BLOCKSIZE);
-        if (progress == -1) abort();
+        if (progress == -1) {
+            delete[] append_data;
+            delete[] file_data;
+            abort();
+        }
+
         total_progress += (size_t) progress;
     }
 
@@ -299,15 +343,31 @@ START_TEST(read_test)
     size_t n = BLOCKSIZE / sizeof(int);
     int *read_buffer = new int[n];
 
-    int res = read(read_fd, 0, (byte *) read_buffer);
+    int res;
+    try {
+        res = read(read_fd, 0, (byte *) read_buffer);
+    } catch (exception& e) {
+        delete[] read_buffer;
+        abort();
+    }
     ck_assert_int_eq(res, BLOCKSIZE);
     ck_assert_mem_eq(read_buffer, READ_DATA_GT, BLOCKSIZE);
 
-    res = read(read_fd, 1, (byte *) read_buffer);
+    try {
+        res = read(read_fd, 1, (byte *) read_buffer);
+    } catch (exception& e) {
+        delete[] read_buffer;
+        abort();
+    }
     ck_assert_int_eq(res, BLOCKSIZE);
     ck_assert_mem_eq(read_buffer, READ_DATA_GT + BLOCKSIZE/sizeof(int), BLOCKSIZE);
 
-    res = read(read_fd, 2, (byte *) read_buffer);
+    try {
+        res = read(read_fd, 2, (byte *) read_buffer);
+    } catch (exception& e) {
+        delete[] read_buffer;
+        abort();
+    }
     ck_assert_int_eq(res, BLOCKSIZE);
     ck_assert_mem_eq(read_buffer, READ_DATA_GT + 2*BLOCKSIZE/sizeof(int), BLOCKSIZE);
 
@@ -322,7 +382,13 @@ START_TEST(read_after_end)
     size_t n = BLOCKSIZE / sizeof(int);
     int *read_buffer = new int[n]();
 
-    int res = read(read_fd, READ_FILE_BLOCKS+1, (byte *) read_buffer);
+    int res;
+    try {
+        res = read(read_fd, READ_FILE_BLOCKS+1, (byte *) read_buffer);
+    } catch (exception& e) {
+        delete[] read_buffer;
+        abort();
+    }
 
     ck_assert_int_eq(res, 0);
     for (size_t i=0; i<n; i++) {
