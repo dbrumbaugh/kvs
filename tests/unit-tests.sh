@@ -3,6 +3,7 @@
 rm -r ./tests/data
 mkdir ./tests/data
 mkdir ./tests/data/block
+mkdir ./tests/data/buffer
 
 
 echo "Running unit tests:"

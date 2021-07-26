@@ -23,16 +23,22 @@ namespace Buffer {
     } pmeta_t;
 
     class Page;
+    class Manager;
+
     typedef std::unique_ptr<Page> u_page_ptr;
     typedef std::shared_ptr<Page> s_page_ptr;
+    typedef std::shared_ptr<Manager> s_manager_ptr;
 
-    class Manager
+    s_manager_ptr create_manager(const char *filename,
+            size_t buffer_pool_page_count=default_pool_page_count);
+
+    class Manager : public std::enable_shared_from_this<Manager>
     {
         friend Page;
 
         private:
             byte* buffer_data;
-            std::unordered_map<size_t, pmeta_t> *page_data;
+            std::unordered_map<size_t, pmeta_t*> *page_data;
             std::queue<size_t> *clock; // 'twould more efficient to just use a
                                       // circular array, but I want to play
                                       // around with the standard library a
@@ -46,7 +52,7 @@ namespace Buffer {
             void unpin_page(size_t page_id);
             void flush_page(size_t page_id);
             void load_page(size_t page_id, bool pin);
-            void unload_page(size_t page_id);
+            void unload_page(size_t page_id, bool erase_meta=true);
             size_t find_page_to_evict();
             bool has_space();
 
@@ -55,6 +61,7 @@ namespace Buffer {
             Manager(const char*filename, size_t buffer_pool_page_count);
 
             u_page_ptr pin_page(size_t page_id, bool lock=false);
+            //Page *pin_page(size_t page_id, bool lock=false);
 
             ~Manager();
 
@@ -64,18 +71,16 @@ namespace Buffer {
     class Page {
         private:
             size_t page_id;
-            Manager *manager;
+            s_manager_ptr manager;
             byte *data;
 
         public:
-            Page(size_t page_id, Manager *man, byte *data);
+            Page(size_t page_id, s_manager_ptr man, byte *data);
             size_t get_page_id();
             byte *get_page_data();
             void mark_modified();
 
-            ~Page() {
-                manager->unpin_page(page_id);
-            }
-    };
+            ~Page();
+        };
 }
 #endif
