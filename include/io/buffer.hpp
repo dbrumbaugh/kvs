@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <memory>
 #include <unordered_map>
+#include <queue>
 #include "kvs.hpp"
 
 namespace Buffer {
@@ -18,7 +19,7 @@ namespace Buffer {
         size_t page_memory_offset;
         int pinned;
         int modified;
-        int clock_hand;
+        int clock_ref;
     } pmeta_t;
 
     class Page;
@@ -32,18 +33,28 @@ namespace Buffer {
         private:
             byte* buffer_data;
             std::unordered_map<size_t, pmeta_t> *page_data;
+            std::queue<size_t> *clock; // 'twould more efficient to just use a
+                                      // circular array, but I want to play
+                                      // around with the standard library a
+                                      // bit.
             int backing_fd;
+            size_t max_page_count;
+            size_t current_page_count;
 
+            void lock_page(size_t page_id);
+            void unlock_page(size_t page_id);
             void unpin_page(size_t page_id);
             void flush_page(size_t page_id);
             void load_page(size_t page_id);
             void unload_page(size_t page_id);
+            size_t find_page_to_evict();
+            bool has_space();
 
         public:
             Manager(const char *filename);
             Manager(const char*filename, size_t buffer_pool_page_count);
 
-            u_page_ptr pin_page(size_t page_id);
+            u_page_ptr pin_page(size_t page_id, bool lock=false);
 
             ~Manager();
 
