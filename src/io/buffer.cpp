@@ -168,6 +168,8 @@ Buffer::Manager::~Manager()
 
     delete[] this->buffer_data;
     delete this->page_data;
+
+    close(this->backing_fd);
 }
 
 
@@ -219,7 +221,7 @@ void Buffer::Manager::unlock_page(size_t page_id)
 }
 
 
-Buffer::Page::Page(size_t page_id, s_manager_ptr man, byte *data)
+Buffer::Page::Page(size_t page_id, Buffer::s_manager_ptr man, byte *data)
 {
     this->page_id = page_id;
     this->manager = man;
@@ -240,11 +242,48 @@ size_t Buffer::Page::get_page_id()
 
 byte *Buffer::Page::get_page_data()
 {
-    return this->get_page_data();
+    return this->data;
 }
 
 
 void Buffer::Page::mark_modified()
 {
     this->manager->page_data->at(this->get_page_id())->modified = 1;
+}
+
+
+
+byte *Buffer::Test::manager_get_data(Buffer::s_manager_ptr man)
+{
+    return man->buffer_data;
+}
+
+
+std::unordered_map<size_t, Buffer::pmeta_t*> *Buffer::Test::manager_get_meta(Buffer::s_manager_ptr man)
+{
+    return man->page_data;
+}
+
+
+std::queue<size_t> *Buffer::Test::manager_get_clock(Buffer::s_manager_ptr man)
+{
+    return man->clock;
+}
+
+
+int Buffer::Test::manager_get_fd(Buffer::s_manager_ptr man)
+{
+    return man->backing_fd;
+}
+
+
+size_t Buffer::Test::manager_get_max_page_count(Buffer::s_manager_ptr man)
+{
+    return man->max_page_count;
+}
+
+
+size_t Buffer::Test::manager_get_current_page_count(Buffer::s_manager_ptr man)
+{
+    return man->current_page_count;
 }

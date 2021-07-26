@@ -10,8 +10,11 @@
 #include <queue>
 #include "kvs.hpp"
 
+
+#define TESTING
+
 namespace Buffer {
-    const size_t pagesize = 4098;
+    const size_t pagesize = 4096;
     const size_t default_pool_page_count = 10;
 
     typedef struct {
@@ -32,9 +35,27 @@ namespace Buffer {
     s_manager_ptr create_manager(const char *filename,
             size_t buffer_pool_page_count=default_pool_page_count);
 
+    namespace Test {
+        byte *manager_get_data(s_manager_ptr man);
+        std::unordered_map<size_t, pmeta_t*> *manager_get_meta(s_manager_ptr man);
+        std::queue<size_t> *manager_get_clock(s_manager_ptr man);
+        int manager_get_fd(s_manager_ptr man);
+        size_t manager_get_max_page_count(s_manager_ptr man);
+        size_t manager_get_current_page_count(s_manager_ptr man);
+    }
+
     class Manager : public std::enable_shared_from_this<Manager>
     {
         friend Page;
+
+#ifdef TESTING
+        friend byte *Test::manager_get_data(s_manager_ptr man);
+        friend std::unordered_map<size_t, pmeta_t*> *Test::manager_get_meta(s_manager_ptr man);
+        friend std::queue<size_t> *Test::manager_get_clock(s_manager_ptr man);
+        friend int Test::manager_get_fd(s_manager_ptr man);
+        friend size_t Test::manager_get_max_page_count(s_manager_ptr man);
+        friend size_t Test::manager_get_current_page_count(s_manager_ptr man);
+#endif
 
         private:
             byte* buffer_data;

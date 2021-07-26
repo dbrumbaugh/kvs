@@ -5,11 +5,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include "io/buffer.hpp"
-
-
-// TODO: Figure out how to force pread/pwrite to return only a partial
-// read/write to ensure that the handlers for that work. I suppose I could
-// create dummy versions of the functions for testing.
+#include "io/block.hpp"
 
 using namespace std;
 
@@ -48,15 +44,16 @@ void teardown_read()
 }
 
 
-int write_fd;
 off_t WRITE_FILE_BLOCKS = 4;
 int *WRITE_DATA_GT;
+size_t WRITE_GT_LEN;
 const char *write_file = "./tests/data/buffer/write_file.dat";
 
 void setup_write()
 {
-    write_fd = open(write_file, FFLAGS | O_TRUNC, 0644);
-    size_t element_cnt = WRITE_FILE_BLOCKS * Buffer::pagesize / sizeof(int);
+    int write_fd = open(write_file, FFLAGS | O_TRUNC, 0644);
+    WRITE_GT_LEN = WRITE_FILE_BLOCKS * Buffer::pagesize;
+    size_t element_cnt = WRITE_GT_LEN / sizeof(int);
 
     srand(5);
     WRITE_DATA_GT = new int[element_cnt];
@@ -71,176 +68,147 @@ void setup_write()
         if (progress == -1) abort();
         total_progress += (size_t) progress;
     }
+
+    close(write_fd);
 }
 
 
 void teardown_write()
 {
     delete[] WRITE_DATA_GT;
-    close(write_fd);
 }
 
 
 START_TEST(constructor_test)
 {
+    using namespace Buffer::Test;
+    using Buffer::create_manager;
+    using Buffer::s_manager_ptr;
+    using block::verify_valid_file_len;
+
     bool error = false;
 
+    s_manager_ptr manager;
+
     try {
-        auto manager = Buffer::create_manager(write_file);
+        manager = create_manager(write_file);
     } catch (exception& e) {
         error = true;
     }
 
     ck_assert_int_eq(error, false);
+    ck_assert_int_eq(manager_get_max_page_count(manager), Buffer::default_pool_page_count);
+    ck_assert_int_eq(manager_get_current_page_count(manager), 0);
+
+    int fd = manager_get_fd(manager);
+    int valid = fcntl(fd, F_GETFD);
+    ck_assert_int_ne(valid, -1);
+    ck_assert_int_eq(verify_valid_file_len(fd), true);
 }
 END_TEST
 
 
 START_TEST(destructor_test)
 {
-    auto manager = new Buffer::Manager(write_file);
-    delete manager;
+    using namespace Buffer::Test;
+    using Buffer::create_manager;
+    using Buffer::s_manager_ptr;
+
+    auto manager = create_manager(write_file);
+
+    int fd = manager_get_fd(manager);
+
+    manager.reset();
+
+    // verify file is no longer valid
+    int valid = fcntl(fd, F_GETFD);
+    ck_assert_int_eq(valid, -1);
+    ck_assert_int_eq(errno, EBADF);
 }
 END_TEST
 
 
 START_TEST(pin_test)
 {
+    using namespace Buffer::Test;
+    using Buffer::create_manager;
+
     size_t page_id = 0;
-    auto manager = Buffer::create_manager(write_file);
+    auto manager = create_manager(write_file);
 
     auto page = manager->pin_page(page_id);
+    Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
 
+    ck_assert_int_eq(meta->clock_ref, 1);
+    ck_assert_int_eq(meta->pinned, 1);
+    ck_assert_int_eq(meta->page_memory_offset, 0);
     ck_assert_int_eq(page->get_page_id(), page_id);
+
+    ck_assert_mem_eq(page->get_page_data(), WRITE_DATA_GT, Buffer::pagesize);
+
 }
 END_TEST
 
 
-START_TEST(unpin_test)
+START_TEST(clean_unpin_test)
 {
+    using namespace Buffer::Test;
+    using Buffer::create_manager;
+
     size_t page_id = 0;
-    auto manager = Buffer::create_manager(write_file);
+    auto manager = create_manager(write_file);
 
     {
         auto page = manager->pin_page(page_id);
     }
 
     // page should be unpinned at this point
+    Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
+    ck_assert_int_eq(meta->clock_ref, 1);
+    ck_assert_int_eq(meta->pinned, 0);
+
 }
 END_TEST
 
 
-/*
-START_TEST(write_test)
+START_TEST(dirty_unpin_test)
 {
-    using namespace Buffer;
-    size_t n = pagesize / sizeof(int);
-    int *write_data = new int[n];
+    using namespace Buffer::Test;
+    using Buffer::create_manager;
+    using Buffer::pagesize;
 
-    srand(9);
-    for (size_t i=0; i<n; i++) {
-        write_data[i] = rand();
+    size_t page_id = 0;
+    auto manager = create_manager(write_file);
+
+    {
+        auto page = manager->pin_page(0);
+        memcpy(page->get_page_data(), ((byte *) WRITE_DATA_GT) + pagesize, pagesize);
+        page->mark_modified();
     }
 
+    // The page should be marked as modified
+    Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
+    ck_assert_int_eq(meta->modified, 1);
 
-    auto manager = new Buffer::Manager(write_file);
-    auto page = manager->pin_page(0);
+    manager.reset();
 
+    // on delete, the contents should be flushed to the file.
+    byte* file_data = new byte[pagesize];
+    int fd = open(write_file, O_RDONLY);
 
-    try {
-
-        write(write_fd, 2, (byte *) write_data);
-    } catch (exception& e) {
-        delete[] write_data;
-        abort();
-    }
-
-
-    int *file_data = new int[n];
     size_t total_progress = 0;
-    ssize_t progress = 0;
-
-    while (total_progress < n*sizeof(int)) {
-        progress = pread(write_fd, file_data, n * sizeof(int),
-                2 * pagesize);
-        if (progress == -1) {
-            delete[] write_data;
-            delete[] file_data;
-            abort();
-        }
+    while (total_progress < pagesize) {
+        ssize_t progress = pread(fd, file_data + total_progress, pagesize - total_progress, 0 + total_progress );
+        if (progress == -1) abort();
         total_progress += (size_t) progress;
     }
+    close(fd);
 
-    ck_assert_mem_eq(file_data, write_data, sizeof(int) * n);
+    ck_assert_mem_eq(file_data, ((byte *) WRITE_DATA_GT) + pagesize, pagesize);
 
-    delete[] write_data;
     delete[] file_data;
 }
 END_TEST
-
-
-START_TEST(read_test)
-{
-    using namespace Buffer;
-    size_t n = BLOCKSIZE / sizeof(int);
-    int *read_buffer = new int[n];
-
-    int res;
-    try {
-        res = read(read_fd, 0, (byte *) read_buffer);
-    } catch (exception& e) {
-        delete[] read_buffer;
-        abort();
-    }
-    ck_assert_int_eq(res, BLOCKSIZE);
-    ck_assert_mem_eq(read_buffer, READ_DATA_GT, BLOCKSIZE);
-
-    try {
-        res = read(read_fd, 1, (byte *) read_buffer);
-    } catch (exception& e) {
-        delete[] read_buffer;
-        abort();
-    }
-    ck_assert_int_eq(res, BLOCKSIZE);
-    ck_assert_mem_eq(read_buffer, READ_DATA_GT + BLOCKSIZE/sizeof(int), BLOCKSIZE);
-
-    try {
-        res = read(read_fd, 2, (byte *) read_buffer);
-    } catch (exception& e) {
-        delete[] read_buffer;
-        abort();
-    }
-    ck_assert_int_eq(res, BLOCKSIZE);
-    ck_assert_mem_eq(read_buffer, READ_DATA_GT + 2*BLOCKSIZE/sizeof(int), BLOCKSIZE);
-
-    delete[] read_buffer;
-}
-END_TEST
-
-
-START_TEST(read_after_end)
-{
-    using namespace Buffer;
-    size_t n = BLOCKSIZE / sizeof(int);
-    int *read_buffer = new int[n]();
-
-    int res;
-    try {
-        res = read(read_fd, READ_FILE_BLOCKS+1, (byte *) read_buffer);
-    } catch (exception& e) {
-        delete[] read_buffer;
-        abort();
-    }
-
-    ck_assert_int_eq(res, 0);
-    for (size_t i=0; i<n; i++) {
-        ck_assert_int_eq(read_buffer[i], 0);
-    }
-
-    delete[] read_buffer;
-}
-END_TEST
-*/
 
 
 Suite *unit_testing()
@@ -253,33 +221,11 @@ Suite *unit_testing()
     suite_add_tcase(unit, ctor);
 
     TCase *pin = tcase_create("pin");
+    tcase_add_unchecked_fixture(pin, setup_write, teardown_write);
     tcase_add_test(pin, pin_test);
-    tcase_add_test(pin, unpin_test);
+    tcase_add_test(pin, clean_unpin_test);
+    tcase_add_test(pin, dirty_unpin_test);
     suite_add_tcase(unit, pin);
-
-
-    /*
-    // Testing read functionality
-    TCase *read = tcase_create("read");
-    tcase_add_unchecked_fixture(read, setup_read, teardown_read);
-    tcase_add_test(read, read_test);
-    tcase_add_test(read, read_after_end);
-    suite_add_tcase(unit, read);
-
-    // Testing write functionality
-    TCase *write = tcase_create("write");
-    tcase_add_unchecked_fixture(write, setup_write, teardown_write);
-    tcase_add_test(write, write_test);
-    suite_add_tcase(unit, write);
-
-    // Testing append functionality
-    TCase *append = tcase_create("append");
-    // not a bug--the reuse of the write fixtures for append
-    // testing is intended.
-    tcase_add_unchecked_fixture(append, setup_write, teardown_write);
-    tcase_add_test(append, append_test);
-    suite_add_tcase(unit, append);
-    */
 
     return unit;
 }
