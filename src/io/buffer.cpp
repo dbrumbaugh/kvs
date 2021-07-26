@@ -69,7 +69,7 @@ void Buffer::Manager::flush_page(size_t page_id)
 }
 
 
-void Buffer::Manager::load_page(size_t page_id)
+void Buffer::Manager::load_page(size_t page_id, bool pin)
 {
     bool not_present = false;
     try {
@@ -94,6 +94,7 @@ void Buffer::Manager::load_page(size_t page_id)
 
         block::read(this->backing_fd, page_id, this->buffer_data +
                 meta.page_memory_offset);
+        if (pin) meta.pinned++;
         this->page_data->insert(std::pair<size_t, pmeta_t> {page_id, meta});
         this->current_page_count++;
         this->clock->push(page_id);
@@ -117,15 +118,16 @@ Buffer::u_page_ptr Buffer::Manager::pin_page(size_t page_id, bool lock)
 
     try {
         page_data = this->page_data->at(page_id);
+        page_data.pinned++;
     } catch (std::out_of_range) {
-        return nullptr;
+        this->load_page(page_id, true);
+        page_data = this->page_data->at(page_id);
     }
 
     if (lock) {
         this->lock_page(page_id);
     }
 
-    page_data.pinned++;
     page_data.clock_ref = 1;
 
     u_page_ptr page = std::make_unique<Page>(page_id, this,

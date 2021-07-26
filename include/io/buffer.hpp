@@ -45,7 +45,7 @@ namespace Buffer {
             void unlock_page(size_t page_id);
             void unpin_page(size_t page_id);
             void flush_page(size_t page_id);
-            void load_page(size_t page_id);
+            void load_page(size_t page_id, bool pin);
             void unload_page(size_t page_id);
             size_t find_page_to_evict();
             bool has_space();
