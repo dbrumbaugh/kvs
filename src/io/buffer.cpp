@@ -192,11 +192,11 @@ size_t Buffer::Manager::find_page_to_evict()
             } else {
                 meta->clock_ref = 0;
                 this->clock->push(next);
+            }
         }
     }
-}
 
-return evict_page_id;
+    return evict_page_id;
 }
 
 
