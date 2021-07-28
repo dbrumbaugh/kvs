@@ -195,6 +195,12 @@ size_t Buffer::Manager::find_page_to_evict()
 }
 
 
+void Buffer::Manager::mark_modified(size_t page_id)
+{
+    auto page = &this->page_data->at(page_id);
+    page->modified = 1;
+}
+
 void Buffer::Manager::lock_page(size_t page_id)
 {
     //TODO: implement lock structure
@@ -225,7 +231,7 @@ Buffer::Page::~Page()
 
 void Buffer::Page::mark_modified()
 {
-    this->manager->page_data->at(this->id)->modified = 1;
+    this->manager->mark_modified(this->id);
 }
 
 

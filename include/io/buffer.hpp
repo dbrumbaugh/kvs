@@ -71,9 +71,10 @@ namespace Buffer {
             void lock_page(size_t page_id);
             void unlock_page(size_t page_id);
             void unpin_page(size_t page_id);
+            void mark_modified(size_t page_id);
             void flush_page(size_t page_id);
             void load_page(size_t page_id, bool pin);
-            void unload_page(size_t page_id, bool erase_meta=true);
+            void unload_page(size_t page_id);
             size_t find_page_to_evict();
 
         public:
