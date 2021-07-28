@@ -185,7 +185,6 @@ START_TEST(eviction_test)
     using Buffer::create_manager;
     using Buffer::pagesize;
 
-    size_t page_id = 0;
     size_t buffer_pool_size = FILE_BLOCKS - 1;
     auto manager = create_manager(data_file, buffer_pool_size);
     auto manager_meta = manager_get_meta(manager);
@@ -228,7 +227,7 @@ START_TEST(eviction_test)
     // And every other page should still be present in the buffer pool.
     error = false;
     try {
-        for (int i=1; i<=buffer_pool_size; i++) {
+        for (size_t i=1; i<=buffer_pool_size; i++) {
             auto page_meta = &manager_meta->at(i);
             // the remaining initially loaded pages should have their
             // clock_ref set to 0.
