@@ -75,14 +75,12 @@ namespace Buffer {
             void load_page(size_t page_id, bool pin);
             void unload_page(size_t page_id, bool erase_meta=true);
             size_t find_page_to_evict();
-            bool has_space();
 
         public:
             Manager(const char *filename);
             Manager(const char*filename, size_t buffer_pool_page_count);
 
             u_page_ptr pin_page(size_t page_id, bool lock=false);
-            //Page *pin_page(size_t page_id, bool lock=false);
 
             ~Manager();
 

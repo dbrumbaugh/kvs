@@ -93,7 +93,7 @@ void Buffer::Manager::load_page(size_t page_id, bool pin)
     if (not_present) {
         pmeta_t *meta = new pmeta_t {.page_id = page_id, .page_memory_offset = 0,
                                 .pinned = 0, .modified = 0, .clock_ref = 0};
-        if (this->has_space()) {
+        if (this->current_page_count < this->max_page_count) {
             // we'll fill from front to back. Once it's full, all new pages will
             // swap into the spot of other ones, and so we don't actually need
             // to explicitly track available page offsets within the buffer.
@@ -131,7 +131,6 @@ void Buffer::Manager::unload_page(size_t page_id, bool erase)
 
 
 Buffer::u_page_ptr Buffer::Manager::pin_page(size_t page_id, bool lock)
-//Buffer::Page *Buffer::Manager::pin_page(size_t page_id, bool lock)
 {
     using Buffer::u_page_ptr;
 
@@ -171,12 +170,6 @@ Buffer::Manager::~Manager()
     delete this->page_data;
 
     close(this->backing_fd);
-}
-
-
-bool Buffer::Manager::has_space()
-{
-    return this->current_page_count < this->max_page_count;
 }
 
 
