@@ -110,9 +110,9 @@ START_TEST(pin_test)
     ck_assert_int_eq(meta->clock_ref, 1);
     ck_assert_int_eq(meta->pinned, 1);
     ck_assert_int_eq(meta->page_memory_offset, 0);
-    ck_assert_int_eq(page->get_page_id(), page_id);
+    ck_assert_int_eq(page->id, page_id);
 
-    ck_assert_mem_eq(page->get_page_data(), DATA_GT, Buffer::pagesize);
+    ck_assert_mem_eq(page->data, DATA_GT, Buffer::pagesize);
 
 }
 END_TEST
@@ -150,7 +150,7 @@ START_TEST(dirty_unpin_test)
 
     {
         auto page = manager->pin_page(0);
-        memcpy(page->get_page_data(), ((byte *) DATA_GT) + pagesize, pagesize);
+        memcpy(page->data, ((byte *) DATA_GT) + pagesize, pagesize);
         page->mark_modified();
     }
 

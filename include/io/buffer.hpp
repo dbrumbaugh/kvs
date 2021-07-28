@@ -89,15 +89,17 @@ namespace Buffer {
 
     class Page {
         private:
-            size_t page_id;
             s_manager_ptr manager;
-            byte *data;
+            bool pinned;
+            const bool auto_unpin;
 
         public:
-            Page(size_t page_id, s_manager_ptr man, byte *data);
-            size_t get_page_id();
-            byte *get_page_data();
+            Page(size_t page_id, s_manager_ptr man, byte *data,
+                    bool auto_upin=true, bool pinned=true);
+            const size_t id;
+            byte* const data;
             void mark_modified();
+            void unpin();
 
             ~Page();
         };

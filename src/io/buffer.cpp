@@ -215,34 +215,29 @@ void Buffer::Manager::unlock_page(size_t page_id)
 }
 
 
-Buffer::Page::Page(size_t page_id, Buffer::s_manager_ptr man, byte *data)
-{
-    this->page_id = page_id;
-    this->manager = man;
-    this->data = data;
-}
+Buffer::Page::Page(size_t page_id, s_manager_ptr man, byte *data, bool
+        auto_unpin, bool pinned): manager(man), id(page_id), data(data),
+        pinned(pinned), auto_unpin(auto_unpin) {  };
+
 
 Buffer::Page::~Page()
 {
-    this->manager->unpin_page(this->page_id);
-}
-
-
-size_t Buffer::Page::get_page_id()
-{
-    return this->page_id;
-}
-
-
-byte *Buffer::Page::get_page_data()
-{
-    return this->data;
+    if (this->auto_unpin)
+        this->unpin();
 }
 
 
 void Buffer::Page::mark_modified()
 {
-    this->manager->page_data->at(this->get_page_id())->modified = 1;
+    this->manager->page_data->at(this->id)->modified = 1;
+}
+
+
+void Buffer::Page::unpin() {
+    if (pinned) {
+        this->manager->unpin_page(this->id);
+        pinned = false;
+    }
 }
 
 
