@@ -62,18 +62,10 @@ void Buffer::Manager::unpin_page(size_t page_id)
 }
 
 
-void Buffer::Manager::flush_page(size_t page_id)
+void Buffer::Manager::flush_page(pmeta_t *page_data)
 {
-    pmeta_t *page_data;
-
-    try {
-        page_data = &this->page_data->at(page_id);
-    } catch (std::out_of_range&) {
-        return;
-    }
-
     if (page_data->modified) {
-        block::write(this->backing_fd, page_id,
+        block::write(this->backing_fd, page_data->page_id,
                 this->buffer_data + page_data->page_memory_offset);
 
         fsync(this->backing_fd);
@@ -101,8 +93,9 @@ void Buffer::Manager::load_page(size_t page_id, bool pin)
             meta.page_memory_offset = Buffer::pagesize * this->current_page_count;
         } else {
             size_t page_to_evict = find_page_to_evict();
-            meta.page_memory_offset = page_data->at(page_to_evict).page_memory_offset;
-            this->unload_page(page_to_evict);
+            pmeta_t *evict_meta = &page_data->at(page_to_evict);
+            meta.page_memory_offset = evict_meta->page_memory_offset;
+            this->unload_page(evict_meta);
         }
 
         block::read(this->backing_fd, page_id, this->buffer_data +
@@ -119,11 +112,11 @@ void Buffer::Manager::load_page(size_t page_id, bool pin)
 // Apparently you can't erase elements from an unordered_map whilst
 // iterating over it. So I added a flag to turn that off for the purposes
 // of my destructor.
-void Buffer::Manager::unload_page(size_t page_id)
+void Buffer::Manager::unload_page(pmeta_t *page_meta)
 {
-    this->flush_page(page_id);
+    this->flush_page(page_meta);
 
-    this->page_data->erase(page_id);
+    this->page_data->erase(page_meta->page_id);
     this->current_page_count--;
 }
 
@@ -159,7 +152,7 @@ Buffer::u_page_ptr Buffer::Manager::pin_page(size_t page_id, bool lock)
 Buffer::Manager::~Manager()
 {
     for (auto pg : *this->page_data) {
-        this->flush_page(pg.second.page_id);
+        this->flush_page(&pg.second);
     }
 
     delete[] this->buffer_data;

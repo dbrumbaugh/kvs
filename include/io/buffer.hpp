@@ -68,9 +68,11 @@ namespace Buffer {
 
             void lock_page(size_t page_id);
             void unlock_page(size_t page_id);
-            void flush_page(size_t page_id);
             void load_page(size_t page_id, bool pin);
-            void unload_page(size_t page_id);
+
+            void flush_page(pmeta_t *page_meta);
+            void unload_page(pmeta_t *page_meta);
+
             size_t find_page_to_evict();
 
 
@@ -83,7 +85,6 @@ namespace Buffer {
             void mark_page_modified(size_t page_id);
 
             ~Manager();
-
     };
 
 
