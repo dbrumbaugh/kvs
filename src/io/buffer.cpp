@@ -211,8 +211,8 @@ void Buffer::Manager::unlock_page(size_t page_id)
 
 
 Buffer::Page::Page(size_t page_id, s_manager_ptr man, byte *data, bool
-        auto_unpin, bool pinned): manager(man), id(page_id), data(data),
-        pinned(pinned), auto_unpin(auto_unpin) {  };
+        auto_unpin, bool pinned): manager(man), pinned(pinned),
+         auto_unpin(auto_unpin), id(page_id), data(data) {};
 
 
 Buffer::Page::~Page()
