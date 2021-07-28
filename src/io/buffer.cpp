@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <memory>
 #include <unordered_map>
+#include <stdexcept>
 
 Buffer::s_manager_ptr Buffer::create_manager(const char *filename, size_t buffer_pool_page_count)
 {

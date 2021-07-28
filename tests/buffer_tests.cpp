@@ -11,60 +11,28 @@ using namespace std;
 
 int FFLAGS = O_RDWR | O_CREAT;
 
-int read_fd;
-off_t READ_FILE_BLOCKS = 4;
-int *READ_DATA_GT;
 
-void setup_read()
+off_t FILE_BLOCKS = 4;
+int *DATA_GT;
+size_t GT_LEN;
+const char *data_file = "./tests/data/buffer/data_file.dat";
+
+void setup_file()
 {
-    const char *read_file = "./tests/data/buffer/read_file.dat";
-    read_fd = open(read_file, FFLAGS | O_TRUNC, 0644);
-    size_t element_cnt = READ_FILE_BLOCKS * Buffer::pagesize / sizeof(int);
-
-    srand(0);
-    READ_DATA_GT = new int[element_cnt];
-    for (size_t i=0; i<element_cnt;i++) {
-        READ_DATA_GT[i] = rand();
-    }
-
-    size_t total_progress = 0;
-    ssize_t progress = 0;
-    while (total_progress < element_cnt*sizeof(int)) {
-        progress = pwrite(read_fd, READ_DATA_GT, element_cnt * sizeof(int), 0);
-        if (progress == -1) abort();
-        total_progress += (size_t) progress;
-    }
-}
-
-
-void teardown_read()
-{
-    delete[] READ_DATA_GT;
-    close(read_fd);
-}
-
-
-off_t WRITE_FILE_BLOCKS = 4;
-int *WRITE_DATA_GT;
-size_t WRITE_GT_LEN;
-const char *write_file = "./tests/data/buffer/write_file.dat";
-
-void setup_write()
-{
-    int write_fd = open(write_file, FFLAGS | O_TRUNC, 0644);
-    WRITE_GT_LEN = WRITE_FILE_BLOCKS * Buffer::pagesize;
-    size_t element_cnt = WRITE_GT_LEN / sizeof(int);
+    int write_fd = open(data_file, FFLAGS | O_TRUNC, 0644);
+    GT_LEN = FILE_BLOCKS * Buffer::pagesize;
+    size_t element_cnt = GT_LEN / sizeof(int);
 
     srand(5);
-    WRITE_DATA_GT = new int[element_cnt];
+    DATA_GT = new int[element_cnt];
     for (size_t i=0; i<element_cnt;i++) {
-        WRITE_DATA_GT[i] = rand();
+        DATA_GT[i] = rand();
     }
 
     size_t total_progress = 0;
     ssize_t progress = 0;
     while (total_progress < element_cnt*sizeof(int)) {
-        progress = pwrite(write_fd, WRITE_DATA_GT, element_cnt * sizeof(int), 0);
+        progress = pwrite(write_fd, DATA_GT, element_cnt * sizeof(int), 0);
         if (progress == -1) abort();
         total_progress += (size_t) progress;
     }
@@ -73,9 +41,9 @@ void setup_write()
 }
 
 
-void teardown_write()
+void teardown_file()
 {
-    delete[] WRITE_DATA_GT;
+    delete[] DATA_GT;
 }
 
 
@@ -91,7 +59,7 @@ START_TEST(constructor_test)
     s_manager_ptr manager;
 
     try {
-        manager = create_manager(write_file);
+        manager = create_manager(data_file);
     } catch (exception& e) {
         error = true;
     }
@@ -114,7 +82,7 @@ START_TEST(destructor_test)
     using Buffer::create_manager;
     using Buffer::s_manager_ptr;
 
-    auto manager = create_manager(write_file);
+    auto manager = create_manager(data_file);
 
     int fd = manager_get_fd(manager);
 
@@ -134,7 +102,7 @@ START_TEST(pin_test)
     using Buffer::create_manager;
 
     size_t page_id = 0;
-    auto manager = create_manager(write_file);
+    auto manager = create_manager(data_file);
 
     auto page = manager->pin_page(page_id);
     Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
@@ -144,7 +112,7 @@ START_TEST(pin_test)
     ck_assert_int_eq(meta->page_memory_offset, 0);
     ck_assert_int_eq(page->get_page_id(), page_id);
 
-    ck_assert_mem_eq(page->get_page_data(), WRITE_DATA_GT, Buffer::pagesize);
+    ck_assert_mem_eq(page->get_page_data(), DATA_GT, Buffer::pagesize);
 
 }
 END_TEST
@@ -156,7 +124,7 @@ START_TEST(clean_unpin_test)
     using Buffer::create_manager;
 
     size_t page_id = 0;
-    auto manager = create_manager(write_file);
+    auto manager = create_manager(data_file);
 
     {
         auto page = manager->pin_page(page_id);
@@ -178,11 +146,11 @@ START_TEST(dirty_unpin_test)
     using Buffer::pagesize;
 
     size_t page_id = 0;
-    auto manager = create_manager(write_file);
+    auto manager = create_manager(data_file);
 
     {
         auto page = manager->pin_page(0);
-        memcpy(page->get_page_data(), ((byte *) WRITE_DATA_GT) + pagesize, pagesize);
+        memcpy(page->get_page_data(), ((byte *) DATA_GT) + pagesize, pagesize);
         page->mark_modified();
     }
 
@@ -194,7 +162,7 @@ START_TEST(dirty_unpin_test)
 
     // on delete, the contents should be flushed to the file.
     byte* file_data = new byte[pagesize];
-    int fd = open(write_file, O_RDONLY);
+    int fd = open(data_file, O_RDONLY);
 
     size_t total_progress = 0;
     while (total_progress < pagesize) {
@@ -204,11 +172,76 @@ START_TEST(dirty_unpin_test)
     }
     close(fd);
 
-    ck_assert_mem_eq(file_data, ((byte *) WRITE_DATA_GT) + pagesize, pagesize);
+    ck_assert_mem_eq(file_data, ((byte *) DATA_GT) + pagesize, pagesize);
 
     delete[] file_data;
 }
 END_TEST
+
+
+START_TEST(eviction_test)
+{
+    using namespace Buffer::Test;
+    using Buffer::create_manager;
+    using Buffer::pagesize;
+
+    size_t page_id = 0;
+    size_t buffer_pool_size = FILE_BLOCKS - 1;
+    auto manager = create_manager(data_file, buffer_pool_size);
+    auto manager_meta = manager_get_meta(manager);
+
+    for (size_t i=0; i<buffer_pool_size; i++) {
+        auto page = manager->pin_page(i);
+    }
+
+    ck_assert_int_eq(buffer_pool_size, manager_get_current_page_count(manager));
+    bool error = false;
+    try {
+        for (size_t i=0; i<buffer_pool_size; i++) {
+            auto page_meta = manager_meta->at(i);
+            // All pages should be unpinned and have a clock_ref of 1.
+            ck_assert_int_eq(page_meta->pinned, 0);
+            ck_assert_int_eq(page_meta->clock_ref, 1);
+        }
+    } catch (exception&) {
+        error = true;
+    }
+
+    ck_assert_int_eq(error, false);
+
+    // at this point, the pool should be full. So the next pin should result
+    // in an eviction.
+    auto page = manager->pin_page(buffer_pool_size);
+    ck_assert_int_eq(buffer_pool_size, manager_get_current_page_count(manager));
+
+    // Because nothing is currently pinned and everything should initially have
+    // a clock_ref of 1, Page 0 should be the one evicted.
+    bool evicted = false;
+    try {
+        manager_get_meta(manager)->at(0);
+    } catch (exception&) {
+        evicted = true;
+    }
+
+    ck_assert_int_eq(evicted, true);
+
+    // And every other page should still be present in the buffer pool.
+    error = false;
+    try {
+        for (int i=1; i<=buffer_pool_size; i++) {
+            auto page_meta = manager_meta->at(i);
+            // the remaining initially loaded pages should have their
+            // clock_ref set to 0.
+            if (i < buffer_pool_size) {
+                ck_assert_int_eq(page_meta->clock_ref, 0);
+            }
+        }
+    } catch (exception&) {
+        error = true;
+    }
+
+    ck_assert_int_eq(error, false);
+}
 
 
 Suite *unit_testing()
@@ -221,10 +254,11 @@ Suite *unit_testing()
     suite_add_tcase(unit, ctor);
 
     TCase *pin = tcase_create("pin");
-    tcase_add_unchecked_fixture(pin, setup_write, teardown_write);
+    tcase_add_unchecked_fixture(pin, setup_file, teardown_file);
     tcase_add_test(pin, pin_test);
     tcase_add_test(pin, clean_unpin_test);
     tcase_add_test(pin, dirty_unpin_test);
+    tcase_add_test(pin, eviction_test);
     suite_add_tcase(unit, pin);
 
     return unit;
