@@ -98,7 +98,6 @@ int block::append(int fd, byte *data)
 
 int block::truncate_to_block_size(int fd, off_t block_no)
 {
-    off_t current_file_len_block = block::file_len_blocks(fd);
     off_t truncate_offset = block::offset(block_no);
 
     int res = ftruncate(fd, truncate_offset);
