@@ -77,6 +77,7 @@ void Buffer::Manager::flush_page(size_t page_id)
                 this->buffer_data + page_data->page_memory_offset);
 
         fsync(this->backing_fd);
+        page_data->modified = false;
     }
 }
 
