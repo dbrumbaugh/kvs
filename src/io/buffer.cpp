@@ -195,7 +195,7 @@ size_t Buffer::Manager::find_page_to_evict()
 }
 
 
-void Buffer::Manager::mark_modified(size_t page_id)
+void Buffer::Manager::mark_page_modified(size_t page_id)
 {
     auto page = &this->page_data->at(page_id);
     page->modified = 1;
@@ -231,7 +231,7 @@ Buffer::Page::~Page()
 
 void Buffer::Page::mark_modified()
 {
-    this->manager->mark_modified(this->id);
+    this->manager->mark_page_modified(this->id);
 }
 
 

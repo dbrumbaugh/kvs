@@ -46,8 +46,6 @@ namespace Buffer {
 
     class Manager : public std::enable_shared_from_this<Manager>
     {
-        friend Page;
-
 #ifdef TESTING
         friend byte *Test::manager_get_data(s_manager_ptr man);
         friend std::unordered_map<size_t, pmeta_t> *Test::manager_get_meta(s_manager_ptr man);
@@ -70,18 +68,19 @@ namespace Buffer {
 
             void lock_page(size_t page_id);
             void unlock_page(size_t page_id);
-            void unpin_page(size_t page_id);
-            void mark_modified(size_t page_id);
             void flush_page(size_t page_id);
             void load_page(size_t page_id, bool pin);
             void unload_page(size_t page_id);
             size_t find_page_to_evict();
+
 
         public:
             Manager(const char *filename);
             Manager(const char*filename, size_t buffer_pool_page_count);
 
             u_page_ptr pin_page(size_t page_id, bool lock=false);
+            void unpin_page(size_t page_id);
+            void mark_page_modified(size_t page_id);
 
             ~Manager();
 
