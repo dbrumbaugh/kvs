@@ -105,7 +105,7 @@ START_TEST(pin_test)
     auto manager = create_manager(data_file);
 
     auto page = manager->pin_page(page_id);
-    Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
+    Buffer::pmeta_t *meta = &manager_get_meta(manager)->at(page_id);
 
     ck_assert_int_eq(meta->clock_ref, 1);
     ck_assert_int_eq(meta->pinned, 1);
@@ -131,7 +131,7 @@ START_TEST(clean_unpin_test)
     }
 
     // page should be unpinned at this point
-    Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
+    Buffer::pmeta_t *meta = &manager_get_meta(manager)->at(page_id);
     ck_assert_int_eq(meta->clock_ref, 1);
     ck_assert_int_eq(meta->pinned, 0);
 
@@ -155,7 +155,7 @@ START_TEST(dirty_unpin_test)
     }
 
     // The page should be marked as modified
-    Buffer::pmeta_t *meta = manager_get_meta(manager)->at(page_id);
+    Buffer::pmeta_t *meta = &manager_get_meta(manager)->at(page_id);
     ck_assert_int_eq(meta->modified, 1);
 
     manager.reset();
@@ -198,7 +198,7 @@ START_TEST(eviction_test)
     bool error = false;
     try {
         for (size_t i=0; i<buffer_pool_size; i++) {
-            auto page_meta = manager_meta->at(i);
+            auto page_meta = &manager_meta->at(i);
             // All pages should be unpinned and have a clock_ref of 1.
             ck_assert_int_eq(page_meta->pinned, 0);
             ck_assert_int_eq(page_meta->clock_ref, 1);
@@ -229,7 +229,7 @@ START_TEST(eviction_test)
     error = false;
     try {
         for (int i=1; i<=buffer_pool_size; i++) {
-            auto page_meta = manager_meta->at(i);
+            auto page_meta = &manager_meta->at(i);
             // the remaining initially loaded pages should have their
             // clock_ref set to 0.
             if (i < buffer_pool_size) {
