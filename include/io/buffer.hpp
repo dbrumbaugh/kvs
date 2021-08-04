@@ -37,18 +37,20 @@ namespace Buffer {
 
     namespace Test {
         byte *manager_get_data(s_manager_ptr man);
-        std::unordered_map<size_t, pmeta_t> *manager_get_meta(s_manager_ptr man);
+        std::unordered_map<size_t, size_t> *manager_get_metadata_map(s_manager_ptr man);
         std::queue<size_t> *manager_get_clock(s_manager_ptr man);
         int manager_get_fd(s_manager_ptr man);
         size_t manager_get_max_page_count(s_manager_ptr man);
         size_t manager_get_current_page_count(s_manager_ptr man);
+        pmeta_t *manager_get_metadata(s_manager_ptr man, size_t offset);
     }
 
     class Manager : public std::enable_shared_from_this<Manager>
     {
 #ifdef TESTING
         friend byte *Test::manager_get_data(s_manager_ptr man);
-        friend std::unordered_map<size_t, pmeta_t> *Test::manager_get_meta(s_manager_ptr man);
+        friend std::unordered_map<size_t, size_t> *Test::manager_get_metadata_map(s_manager_ptr man);
+        friend pmeta_t *Test::manager_get_metadata(s_manager_ptr man, size_t offset);
         friend std::queue<size_t> *Test::manager_get_clock(s_manager_ptr man);
         friend int Test::manager_get_fd(s_manager_ptr man);
         friend size_t Test::manager_get_max_page_count(s_manager_ptr man);
@@ -57,7 +59,8 @@ namespace Buffer {
 
         private:
             byte* buffer_data;
-            std::unordered_map<size_t, pmeta_t> *page_data;
+            std::unordered_map<size_t, size_t> *metadata_map;
+            pmeta_t *metadata;
             std::queue<size_t> *clock; // 'twould more efficient to just use a
                                       // circular array, but I want to play
                                       // around with the standard library a

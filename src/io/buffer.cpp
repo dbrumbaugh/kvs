@@ -9,6 +9,7 @@
 #include <memory>
 #include <unordered_map>
 #include <stdexcept>
+#include <string.h>
 
 Buffer::s_manager_ptr Buffer::create_manager(const char *filename, size_t buffer_pool_page_count)
 {
@@ -21,12 +22,14 @@ Buffer::Manager::Manager(const char *filename)
     this->backing_fd = open(filename, O_RDWR | O_CREAT, 0644);
     block::prepare_file(this->backing_fd);
 
-    this->page_data = new std::unordered_map<size_t, pmeta_t>();
+    this->metadata_map = new std::unordered_map<size_t, size_t>();
+
     this->buffer_data = new byte[default_pool_page_count * pagesize];
     this->clock = new std::queue<size_t>();
 
     this->current_page_count = 0;
     this->max_page_count = Buffer::default_pool_page_count;
+    this->metadata = new pmeta_t[this->max_page_count];
 }
 
 
@@ -35,23 +38,24 @@ Buffer::Manager::Manager(const char*filename, size_t buffer_pool_page_count)
     this->backing_fd = open(filename, O_RDWR | O_CREAT, 0644);
     block::prepare_file(this->backing_fd);
 
-    this->page_data = new std::unordered_map<size_t, pmeta_t>();
+    this->metadata_map = new std::unordered_map<size_t, size_t>();
     this->buffer_data = new byte[buffer_pool_page_count * pagesize];
     this->clock = new std::queue<size_t>();
 
     this->current_page_count = 0;
     this->max_page_count = buffer_pool_page_count;
+    this->metadata = new pmeta_t[this->max_page_count];
 }
 
 
 void Buffer::Manager::unpin_page(size_t page_id)
 {
-    pmeta_t *meta;
-    try {
-        meta = &this->page_data->at(page_id);
-    } catch (std::out_of_range&) {
+    auto meta_idx = this->metadata_map->find(page_id);
+    if (meta_idx == this->metadata_map->end()) {
         return;
     }
+
+    pmeta_t *meta = &this->metadata[meta_idx->second];
 
     if (meta->pinned) {
         meta->pinned--;
@@ -77,11 +81,12 @@ void Buffer::Manager::flush_page(pmeta_t *page_data)
 void Buffer::Manager::load_page(size_t page_id, bool pin)
 {
     bool not_present = false;
-    try {
-        this->page_data->at(page_id);
-    } catch (std::out_of_range&) {
+    auto meta_idx = this->metadata_map->find(page_id);
+
+    if (meta_idx == this->metadata_map->end()) {
         not_present = true;
     }
+
 
     if (not_present) {
         pmeta_t meta = pmeta_t {.page_id = page_id, .page_memory_offset = 0,
@@ -93,7 +98,7 @@ void Buffer::Manager::load_page(size_t page_id, bool pin)
             meta.page_memory_offset = Buffer::pagesize * this->current_page_count;
         } else {
             size_t page_to_evict = find_page_to_evict();
-            pmeta_t *evict_meta = &page_data->at(page_to_evict);
+            pmeta_t *evict_meta = &metadata[this->metadata_map->at(page_to_evict)];
             meta.page_memory_offset = evict_meta->page_memory_offset;
             this->unload_page(evict_meta);
         }
@@ -102,7 +107,8 @@ void Buffer::Manager::load_page(size_t page_id, bool pin)
                 meta.page_memory_offset);
         if (pin) meta.pinned++;
 
-        this->page_data->insert(std::pair<size_t, pmeta_t> {page_id, meta});
+        this->metadata_map->insert(std::pair<size_t, size_t> {page_id, meta.page_memory_offset});
+        memcpy(this->metadata + meta.page_memory_offset, &meta, sizeof(pmeta_t));
         this->current_page_count++;
         this->clock->push(page_id);
     }
@@ -116,7 +122,7 @@ void Buffer::Manager::unload_page(pmeta_t *page_meta)
 {
     this->flush_page(page_meta);
 
-    this->page_data->erase(page_meta->page_id);
+    this->metadata_map->erase(page_meta->page_id);
     this->current_page_count--;
 }
 
@@ -125,15 +131,14 @@ Buffer::u_page_ptr Buffer::Manager::pin_page(size_t page_id, bool lock)
 {
     using Buffer::u_page_ptr;
 
-    pmeta_t *page_data = new pmeta_t;
-
-    try {
-        page_data = &this->page_data->at(page_id);
-        page_data->pinned++;
-    } catch (std::out_of_range&) {
+    pmeta_t *page_data;
+    auto meta_idx = this->metadata_map->find(page_id);
+    if (meta_idx == this->metadata_map->end()) {
         this->load_page(page_id, true);
-        page_data = &this->page_data->at(page_id);
+        meta_idx = this->metadata_map->find(page_id);
     }
+
+    page_data = &this->metadata[meta_idx->second];
 
     if (lock) {
         this->lock_page(page_id);
@@ -144,19 +149,19 @@ Buffer::u_page_ptr Buffer::Manager::pin_page(size_t page_id, bool lock)
     u_page_ptr page = std::make_unique<Page>(page_id, shared_from_this(),
             this->buffer_data + page_data->page_memory_offset);
 
-
     return page;
 }
 
 
 Buffer::Manager::~Manager()
 {
-    for (auto pg : *this->page_data) {
-        this->flush_page(&pg.second);
+    for (auto pg : *this->metadata_map) {
+        this->flush_page(&this->metadata[pg.second]);
     }
 
     delete[] this->buffer_data;
-    delete this->page_data;
+    delete this->metadata;
+    delete this->metadata_map;
 
     close(this->backing_fd);
 }
@@ -171,7 +176,8 @@ size_t Buffer::Manager::find_page_to_evict()
         size_t next = this->clock->front();
         this->clock->pop();
 
-        pmeta_t *meta = &this->page_data->at(next);
+        auto meta_idx = this->metadata_map->at(next);
+        pmeta_t *meta = &this->metadata[meta_idx];
 
         if (meta->pinned == 0) {
             if (meta->clock_ref == 0){
@@ -190,7 +196,8 @@ size_t Buffer::Manager::find_page_to_evict()
 
 void Buffer::Manager::mark_page_modified(size_t page_id)
 {
-    auto page = &this->page_data->at(page_id);
+    auto meta_idx = this->metadata_map->find(page_id);
+    auto page = &this->metadata[meta_idx->second];
     page->modified = 1;
 }
 
@@ -243,9 +250,15 @@ byte *Buffer::Test::manager_get_data(Buffer::s_manager_ptr man)
 }
 
 
-std::unordered_map<size_t, Buffer::pmeta_t> *Buffer::Test::manager_get_meta(Buffer::s_manager_ptr man)
+std::unordered_map<size_t, size_t> *Buffer::Test::manager_get_metadata_map(Buffer::s_manager_ptr man)
 {
-    return man->page_data;
+    return man->metadata_map;
+}
+
+
+Buffer::pmeta_t *Buffer::Test::manager_get_metadata(Buffer::s_manager_ptr man, size_t offset)
+{
+    return &man->metadata[offset];
 }
 
 
